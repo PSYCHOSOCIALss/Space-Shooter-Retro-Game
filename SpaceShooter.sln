@@ -1,25 +1,597 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.11.35222.181
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpaceShooter", "SpaceShooter\SpaceShooter.csproj", "{9196CAF4-7F87-4339-8679-23B0AD516C01}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{9196CAF4-7F87-4339-8679-23B0AD516C01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9196CAF4-7F87-4339-8679-23B0AD516C01}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9196CAF4-7F87-4339-8679-23B0AD516C01}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9196CAF4-7F87-4339-8679-23B0AD516C01}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {55B199CC-4FEE-42E1-A53A-1FB6FF90BD73}
-	EndGlobalSection
-EndGlobal
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using WMPLib; //เรียกใช้ WindowsMediaPlayer
+using static SpaceShooter.AchievementNotification; // ใช้ AchievementNotification แบบ static เพื่อเข้าถึงได้โดยตรง
+
+
+namespace SpaceShooter
+{
+
+    public partial class Form1 : Form
+    {
+
+        WindowsMediaPlayer gameMedia; // ตัวแปรสำหรับเล่นเสียงของเกม
+        WindowsMediaPlayer shootgMedia; // ตัวแปรสำหรับเล่นเสียงการยิง
+        WindowsMediaPlayer explosion; // ตัวแปรสำหรับเล่นเสียงระเบิด
+
+
+        PictureBox[] enemiesMunition; // อาร์เรย์ของ PictureBox สำหรับกระสุนของศัตรู
+        int enemiesMunitionSpeed; // ความเร็วของกระสุนศัตรู
+
+
+        PictureBox[] stars; // อาร์เรย์ของ PictureBox สำหรับแสดงดาวพื้นหลัง
+        int playerSpeed;  // ความเร็วของผู้เล่น
+
+
+        PictureBox[] munitions; // อาร์เรย์ของ PictureBox สำหรับกระสุนของผู้เล่น
+        int MunitionSpeed; // ความเร็วของกระสุนผู้เล่น
+
+
+        PictureBox[] enemies; // อาร์เรย์ของ PictureBox สำหรับศัตรู
+        int enemiSpeed; // ความเร็วของศัตรู
+
+
+        int backgroundspeed; // ความเร็วของพื้นหลังที่เคลื่อนที่
+        Random rnd; // ตัวสร้างตัวเลขสุ่มสำหรับเกม
+
+
+        int score; // คะแนนของผู้เล่น
+        int level; // ระดับ (level) ของเกม
+        int dificulty; // ความยากของเกม
+        bool pause; // สถานะหยุดเกมชั่วคราว
+        bool gameisOver; // สถานะว่าจบเกมแล้วหรือยัง
+
+        private Label achievementLabel;  // ป้ายข้อความสำหรับแสดงความสำเร็จ
+        private Timer achievementTimer; // ตัวจับเวลาสำหรับแสดงผลความสำเร็จ
+        private PictureBox achievementIcon; // ไอคอนสำหรับแสดงความสำเร็จ
+
+        int boss1Index = 0; //  boss1 อยู่ในตำแหน่งที่ 0
+        int boss2Index = 9; //  boss2 อยู่ในตำแหน่งที่ 9
+
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private void InitializeAchievementSystem()
+        {
+            // สร้าง Label สำหรับข้อความ Achievement
+            achievementLabel = new Label();
+            achievementLabel.Font = new Font("VT323", 15, FontStyle.Bold); // ตั้งค่าฟอนต์ ขนาด และสไตล์ตัวอักษร
+            achievementLabel.ForeColor = Color.YellowGreen; // ตั้งค่าสีตัวอักษรเป็นสีเขียว
+            achievementLabel.BackColor = Color.Transparent; // ตั้งค่าพื้นหลังโปร่งใส
+            achievementLabel.AutoSize = true; // ให้ขนาด Label ปรับตามข้อความโดยอัตโนมัติ
+            achievementLabel.Location = new Point(50, 10); // วางไว้ถัดจาก Icon
+            achievementLabel.Visible = false; // เริ่มต้นซ่อน Label ไว้
+            this.Controls.Add(achievementLabel); // เพิ่ม Label ลงในฟอร์ม
+
+            // สร้าง PictureBox สำหรับ Icon
+            achievementIcon = new PictureBox();
+            achievementIcon.Size = new Size(40, 40); // ขนาด Icon
+            achievementIcon.Location = new Point(10, 10); // ตำแหน่งด้านซ้ายของข้อความ
+            achievementIcon.SizeMode = PictureBoxSizeMode.StretchImage; // ตั้งค่าให้ปรับขนาดรูปภาพให้พอดีกับ PictureBox
+            achievementIcon.Visible = false; // ซ่อนไว้ก่อน
+            this.Controls.Add(achievementIcon); // เพิ่ม PictureBox ลงในฟอร์ม
+
+            // สร้าง Timer สำหรับซ่อน Achievement
+            achievementTimer = new Timer(); // สร้าง Timer เพื่อกำหนดเวลาการแสดงผล
+            achievementTimer.Interval = 3000; // 3 วินาที
+            achievementTimer.Tick += (s, e) => // เมื่อ Timer ทำงานครบตามเวลา
+            {
+                achievementLabel.Visible = false; // ซ่อนข้อความ Achievement
+
+                achievementIcon.Visible = false; // ซ่อน Icon
+                achievementTimer.Stop(); // หยุด Timer
+            };
+        }
+
+
+        private void ShowAchievement(string title, string description, Image icon)
+        {
+            achievementLabel.Text = $"{title}\n{description}"; // ตั้งค่าข้อความสำหรับแสดงชื่อและคำอธิบาย
+            achievementLabel.Visible = true; // แสดงข้อความ Achievement
+
+            achievementIcon.Image = icon; // ตั้งค่าภาพ Icon
+            achievementIcon.Visible = true; // แสดงไอคอน Achievement
+
+            // รีสตาร์ท Timer
+            achievementTimer.Stop(); // เริ่มทำงาน Timer
+            achievementTimer.Start(); // หยุดการทำงานทำงาน Timer
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+          
+            pause = false; // ตั้งค่าสถานะให้เกมไม่อยู่ในโหมดหยุดชั่วคราว
+            gameisOver = false; // ตั้งค่าให้เกมยังไม่จบ
+            score = 0; // ตั้งค่าคะแนนเริ่มต้นเป็น 0
+            level = 1; // กำหนดระดับเกมเริ่มต้นเป็น 1
+            dificulty = 9; // ตั้งค่าความยากของเกมเริ่มต้น
+
+
+            backgroundspeed = 4; // กำหนดความเร็วของพื้นหลัง
+            playerSpeed = 4; // กำหนดความเร็วการเคลื่อนที่ของผู้เล่น
+            enemiSpeed = 4; // กำหนดความเร็วของศัตรู
+            MunitionSpeed = 20; // กำหนดจำนวนศัตรู
+            enemiesMunitionSpeed = 4; // กำหนดความเร็วการเปลี่ยนตำแหน่งของศัตรู
+
+
+            munitions = new PictureBox[3]; // สร้างอาร์เรย์ PictureBox สำหรับกระสุนจำนวน 3 นัด
+
+            InitializeAchievementSystem(); // เรียกฟังก์ชันเริ่มต้นระบบ Achievement
+
+
+            //Load Images
+            Image munition = Image.FromFile(@"asserts\munition.png"); // โหลดภาพกระสุนจากไฟล์
+
+            Image enemi1 = Image.FromFile("asserts\\E1.png"); // โหลดภาพศัตรู 1 จากไฟล์
+            Image enemi2 = Image.FromFile("asserts\\E2.png"); // โหลดภาพศัตรู 2 จากไฟล์
+            Image enemi3 = Image.FromFile("asserts\\E3.png"); // โหลดภาพศัตรู 3 จากไฟล์
+            Image boss1 = Image.FromFile("asserts\\Boss1.png"); // โหลดภาพบอส 1 จากไฟล์
+            Image boss2 = Image.FromFile("asserts\\Boss2.png"); // โหลดภาพบอส 2 จากไฟล์
+
+
+            enemies = new PictureBox[10]; // สร้างอาร์เรย์ PictureBox สำหรับศัตรูจำนวน 10 ตัว
+
+
+            //Initoaliase EnemiesPictureBoxes
+            for (int i = 0; i < enemies.Length; i++) // วนลูปเพื่อกำหนดค่าศัตรุแต่ละตัว
+            {
+                enemies[i] = new PictureBox();  // สร้าง PictureBox สำหรับศัตรูแต่ละตัว
+                enemies[i].Size = new Size(40, 40); // กำหนดขนาด PictureBox เป็น 40x40 พิกเซล
+                enemies[i].SizeMode = PictureBoxSizeMode.Zoom; // ปรับภาพให้พอดีกับกรอบ PictureBox
+                enemies[i].BorderStyle = BorderStyle.None;  // ไม่มีกรอบของ PictureBox
+                enemies[i].Visible = false; // ซ่อน PictureBox เริ่มต้น
+                this.Controls.Add(enemies[i]); // เพิ่ม PictureBox ลงในฟอร์ม
+                enemies[i].Location = new Point((i + 1) * 50, -50); // ตั้งค่าตำแหน่งของศัตรูให้อยู่นอกจอด้านบน
+            }
+
+            
+            enemies[0].Image = boss1; // กำหนดภาพบอส 1 ให้ศัตรูตัวแรก
+            enemies[1].Image = enemi2; // กำหนดภาพศัตรู 2 ให้ศัตรูตัวที่สอง
+            enemies[2].Image = enemi3; // กำหนดภาพศัตรู 3 ให้ศัตรูตัวที่สาม
+            enemies[3].Image = enemi3; // กำหนดภาพศัตรู 3 ให้ศัตรูตัวที่สี่
+            enemies[4].Image = enemi1; // กำหนดภาพศัตรู 1 ให้ศัตรูตัวที่ห้า
+            enemies[5].Image = enemi3; // กำหนดภาพศัตรู 3 ให้ศัตรูตัวที่หก
+            enemies[6].Image = enemi2; // กำหนดภาพศัตรู 2 ให้ศัตรูตัวที่เจ็ด
+            enemies[7].Image = enemi3; // กำหนดภาพศัตรู 3 ให้ศัตรูตัวที่แปด
+            enemies[8].Image = enemi2; // กำหนดภาพศัตรู 2 ให้ศัตรูตัวที่เก้า
+            enemies[9].Image = boss2; // กำหนดภาพบอส 2 ให้ศัตรูตัวที่สิบ
+
+
+            for (int i = 0; i < munitions.Length; i++) // วนลูปเพื่อกำหนดค่ากระสุนแต่ละนัด
+            {
+                munitions[i] = new PictureBox(); // สร้าง PictureBox สำหรับกระสุนแต่ละนัด
+                munitions[i].Size = new Size(8, 8);  // กำหนดขนาดกระสุนเป็น 8x8 พิกเซล
+                munitions[i].Image = munition; 
+                munitions[i].SizeMode = PictureBoxSizeMode.Zoom; // ปรับภาพกระสุนให้พอดีกับกรอบ PictureBox
+                munitions[i].BorderStyle = BorderStyle.None;  // ไม่มีกรอบของ PictureBox
+                this.Controls.Add(munitions[i]);  // เพิ่ม PictureBox กระสุนลงในฟอร์ม
+            }
+
+
+            //Create WMP
+            gameMedia = new WindowsMediaPlayer(); // สร้างวัตถุ WindowsMediaPlayer สำหรับเพลงเกม
+            shootgMedia = new WindowsMediaPlayer(); // สร้างวัตถุ WindowsMediaPlayer สำหรับเสียงยิง
+            explosion = new WindowsMediaPlayer(); // สร้างวัตถุ WindowsMediaPlayer สำหรับเสียงระเบิด
+
+
+            //Load All Songs
+            gameMedia.URL = "songs\\GameSong1.mp3"; // โหลดไฟล์เพลงเกมจากโฟลเดอร์ songs
+            shootgMedia.URL = "songs\\shoot1.mp3"; // โหลดไฟล์เสียงยิงจากโฟลเดอร์ songs
+            explosion.URL = "songs\\boom1.mp3"; // โหลดไฟล์เสียงระเบิดจากโฟลเดอร์ songs
+
+
+            //SetUp Songs Settings
+            gameMedia.settings.setMode("loop", true); // ตั้งค่าให้เพลงเล่นวนลูป
+            gameMedia.settings.volume = 20; // กำหนดระดับเสียงของเพลงเกมเป็น 20
+            shootgMedia.settings.volume = 8; // กำหนดระดับเสียงของเสียงยิงเป็น 8
+            explosion.settings.volume = 15; // กำหนดระดับเสียงของเสียงระเบิดเป็น 15
+
+
+            stars = new PictureBox[15]; // สร้างอาร์เรย์ PictureBox สำหรับแสดงดาวจำนวน 15 ดวง
+
+            rnd = new Random(); // สร้างตัวสุ่ม (Random) สำหรับกำหนดตำแหน่งของดาว
+
+
+
+            for (int i = 0; i < stars.Length; i++) // วนลูปสร้างและกำหนดค่าของดาวแต่ละดวง
+            {
+                stars[i] = new PictureBox(); // สร้าง PictureBox สำหรับแต่ละดวง
+                stars[i].BorderStyle = BorderStyle.None; // ไม่ใช้กรอบรอบ PictureBox
+                stars[i].Location = new Point(rnd.Next(20, 500), rnd.Next(-10, 400)); // ตั้งค่าตำแหน่งแบบสุ่มในกรอบจอเกม
+
+                if (i % 2 == 1)  // ตรวจสอบว่าดาวเป็นลำดับคี่
+                {
+                    stars[i].Size = new Size(2, 2); // ตั้งค่าขนาดดาวเป็น 2x2 พิกเซล
+                    stars[i].BackColor = Color.Wheat; // ตั้งค่าสีดาวเป็น Wheat
+                }
+                else
+                {
+                    stars[i].Size = new Size(3, 3); // ตั้งค่าขนาดดาวเป็น 3x3 พิกเซล
+                    stars[i].BackColor = Color.DarkGray; // ตั้งค่าสีดาวเป็น DarkGray
+                }
+
+                this.Controls.Add(stars[i]); // เพิ่ม PictureBox ดาวแต่ละดวงลงในฟอร์ม
+
+            }
+
+
+
+            //Enemies Munition
+            enemiesMunition = new PictureBox[10]; // สร้างอาร์เรย์ PictureBox สำหรับกระสุนของศัตรูจำนวน 10 นัด
+
+            for (int i = 0; i < enemiesMunition.Length; i++) // วนลูปกำหนดค่ากระสุนแต่ละนัดของศัตรู
+            {
+                enemiesMunition[i] = new PictureBox(); // สร้าง PictureBox สำหรับกระสุนแต่ละนัด
+                enemiesMunition[i].Size = new Size(2, 25); // ตั้งค่าขนาดกระสุนเป็น 2x25 พิกเซล
+                enemiesMunition[i].Visible = false; // ซ่อนกระสุนเริ่มต้น
+                enemiesMunition[i].BackColor = Color.Yellow; // ตั้งค่าสีกระสุนเป็นสีเหลือง
+                int x = rnd.Next(0, 10); // สุ่มค่าเพื่อเลือกตำแหน่งศัตรูสำหรับปล่อยกระสุน
+                enemiesMunition[i].Location = new Point(enemies[x].Location.X, enemies[x].Location.Y - 20); // ตั้งตำแหน่งกระสุนตามตำแหน่งศัตรู
+                this.Controls.Add(enemiesMunition[i]); // เพิ่ม PictureBox กระสุนลงในฟอร์ม
+            }
+            gameMedia.controls.play(); // เริ่มเล่นเพลงเกม
+        }
+
+
+        private void MoveBgTimer_Tick(object sender, EventArgs e)
+        {
+            for (int i = 0; i < stars.Length / 2; i++) // วนลูปจัดการดาวครึ่งแรก
+            {
+                stars[i].Top += backgroundspeed; // เพิ่มตำแหน่ง Top ของดาวตาม backgroundspeed
+
+                if (stars[i].Top >= this.Height)  // ตรวจสอบว่าดาวหลุดจากจอด้านล่างหรือไม่
+                {
+                    stars[i].Top = -stars[i].Height; // รีเซ็ตดาวกลับไปเริ่มที่ด้านบนของจอ
+                }
+            }
+
+            for (int i = stars.Length / 2; i < stars.Length; i++) // วนลูปจัดการดาวครึ่งหลัง
+
+            {
+                stars[i].Top += backgroundspeed - 2; // เพิ่มตำแหน่ง Top ของดาวครึ่งหลังด้วยความเร็วที่ช้ากว่า
+
+                if (stars[i].Top >= this.Height) // ตรวจสอบว่าดาวหลุดจากจอด้านล่างหรือไม่
+                {
+                    stars[i].Top = -stars[i].Height; // รีเซ็ตดาวกลับไปเริ่มที่ด้านบนของจอ
+                }
+            }
+        }
+
+
+        private void LeftMoveTimer_Tick(object sender, EventArgs e)
+        {
+            if (Player.Left > 10)  // ตรวจสอบว่าผู้เล่นยังไม่ชนขอบซ้ายของจอ
+            {
+                Player.Left -= playerSpeed; // ลดค่า Left ของผู้เล่นเพื่อเคลื่อนที่ไปทางซ้าย
+            }
+        }
+
+
+        private void RightMoveTimer_Tick(object sender, EventArgs e)
+        { 
+            if (Player.Right < 580)  // ตรวจสอบว่าผู้เล่นยังไม่ชนขอบขวาของจอ
+            {
+                Player.Left += playerSpeed; // เพิ่มค่า Left ของผู้เล่นเพื่อเคลื่อนที่ไปทางขวา
+            }
+        }
+
+
+        private void DownMoveTimer_Tick(object sender, EventArgs e)
+        {
+            if (Player.Top < 400) // ตรวจสอบว่าผู้เล่นยังไม่ชนขอบล่างของจอ
+            {
+                Player.Top += playerSpeed; // เพิ่มค่า Top ของผู้เล่นเพื่อเคลื่อนที่ลงล่าง
+            }
+        }
+
+
+        private void UpMoveTimer_Tick(object sender, EventArgs e)
+        {
+            if (Player.Top > 10) // ตรวจสอบว่าผู้เล่นยังไม่ชนขอบบนของจอ
+            {
+                Player.Top -= playerSpeed; // ลดค่า Top ของผู้เล่นเพื่อเคลื่อนที่ขึ้นบน
+            }
+        }
+
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (!pause) // ตรวจสอบว่าเกมไม่ได้อยู่ในสถานะหยุดพัก (pause)
+            {
+                if (e.KeyCode == Keys.Right) // ตรวจสอบว่าปุ่มที่กดคือปุ่มลูกศรขวา
+                {
+                    RightMoveTimer.Start(); // เริ่มตัวจับเวลาเพื่อเคลื่อนที่ไปทางขวา
+                }
+                if (e.KeyCode == Keys.Left) // ตรวจสอบว่าปุ่มที่กดคือปุ่มลูกศรซ้าย
+                {
+                    LeftMoveTimer.Start(); // เริ่มตัวจับเวลาเพื่อเคลื่อนที่ไปทางซ้าย
+                }
+                if (e.KeyCode == Keys.Down) // ตรวจสอบว่าปุ่มที่กดคือปุ่มลูกศรลง
+                {
+                    DownMoveTimer.Start(); // เริ่มตัวจับเวลาเพื่อเคลื่อนที่ลงล่าง
+                }
+                if (e.KeyCode == Keys.Up) // ตรวจสอบว่าปุ่มที่กดคือปุ่มลูกศรขึ้น
+                {
+                    UpMoveTimer.Start(); // เริ่มตัวจับเวลาเพื่อเคลื่อนที่ขึ้นบน
+                }
+            }
+
+        }
+
+
+        private void Form1_KeyUp(object sender, KeyEventArgs e)
+        {
+
+            RightMoveTimer.Stop(); // หยุดตัวจับเวลาเคลื่อนที่ไปทางขวาเมื่อปล่อยปุ่ม
+            LeftMoveTimer.Stop(); // หยุดตัวจับเวลาเคลื่อนที่ไปทางซ้ายเมื่อปล่อยปุ่ม
+            DownMoveTimer.Stop(); // หยุดตัวจับเวลาเคลื่อนที่ลงล่างเมื่อปล่อยปุ่ม
+            UpMoveTimer.Stop(); // หยุดตัวจับเวลาเคลื่อนที่ขึ้นบนเมื่อปล่อยปุ่ม
+
+
+            if (e.KeyCode == Keys.Space) // ตรวจสอบว่าปุ่มที่ปล่อยคือปุ่ม Space
+            {
+                if (!gameisOver) // ตรวจสอบว่าเกมยังไม่จบ
+                {
+                    if (pause) // ถ้าเกมอยู่ในสถานะหยุดพัก (pause)
+
+                    {
+                        StartTimers(); // เริ่มตัวจับเวลาทั้งหมดเพื่อกลับมาเล่นเกมต่อ
+                        label.Visible = false; // ซ่อนข้อความที่แสดงสถานะหยุดพัก
+                        gameMedia.controls.play(); // เล่นเพลงหรือเสียงประกอบเกมต่อ
+                        pause = false; // เปลี่ยนสถานะ pause เป็น false
+                    }
+                    else
+                    {
+                        label.Location = new Point(this.Width / 2 - 120, 150);// ตั้งตำแหน่งข้อความ "PAUSED" ให้อยู่กลางหน้าจอ
+                        label.Text = "PAUSED";  // ตั้งข้อความให้เป็น "PAUSED"
+                        label.Visible = true; // แสดงข้อความหยุดพัก
+                        gameMedia.controls.pause(); // หยุดเพลงหรือเสียงประกอบเกม
+                        StopTimers(); // หยุดตัวจับเวลาทั้งหมด
+                        pause = true;  // เปลี่ยนสถานะ pause เป็น true
+                    }
+
+                }
+            }
+        }
+
+
+        private void MoveMunitionTimer_Tick(object sender, EventArgs e)
+        {
+
+            shootgMedia.controls.play(); // เล่นเสียงยิงกระสุน
+
+            for (int i = 0; i < munitions.Length; i++) // วนลูปกระสุนทุกลูก
+            {
+                if (munitions[i].Top > 0) // ตรวจสอบว่ากระสุนยังอยู่ในขอบหน้าจอด้านบน
+                {
+                    munitions[i].Visible = true; // ทำให้กระสุนแสดงผล
+                    munitions[i].Top -= MunitionSpeed; // เลื่อนตำแหน่งกระสุนขึ้นตามความเร็วที่กำหนด
+
+                    Collision(); // เรียกฟังก์ชันตรวจสอบการชนกัน
+                }
+                else // ถ้ากระสุนหลุดออกจากหน้าจอ
+                {
+                    munitions[i].Visible = false; // ซ่อนกระสุน
+                    munitions[i].Location = new Point(Player.Location.X + 20, Player.Location.Y - i * 30); // รีเซ็ตตำแหน่งกระสุนให้อยู่ใกล้ผู้เล่น
+                }
+            }
+        }
+
+        private void MoveEnemiesTimer_Tick(object sender, EventArgs e)
+        {
+            MoveEnemies(enemies, enemiSpeed); // เรียกฟังก์ชันเพื่อเคลื่อนที่ศัตรูทั้งหมด
+        }
+
+        private void MoveEnemies(PictureBox[] array, int speed)
+        {
+            for (int i = 0; i < array.Length; i++) // วนลูปจัดการศัตรูในอาร์เรย์ทั้งหมด
+            { 
+                array[i].Visible = true; // ทำให้ศัตรูแสดงผล
+                array[i].Top += speed; // เลื่อนตำแหน่งศัตรูลงตามความเร็วที่กำหนด
+
+                if (array[i].Top > this.Height) // ถ้าศัตรูหลุดจากหน้าจอด้านล่าง
+                {
+                    array[i].Location = new Point((i + 1) * 50, -200); // รีเซ็ตตำแหน่งศัตรูให้อยู่ด้านบนหน้าจอ
+                }
+            }
+        }
+
+        private void Collision()
+        {
+            for (int i = 0; i < enemies.Length; i++) // วนลูปตรวจสอบศัตรูทั้งหมด
+            {
+                if (munitions[0].Bounds.IntersectsWith(enemies[i].Bounds) // ตรวจสอบว่ากระสุนที่ 1 ชนกับศัตรูหรือไม่
+                    || munitions[1].Bounds.IntersectsWith(enemies[i].Bounds)  // ตรวจสอบว่ากระสุนที่ 2 ชนกับศัตรูหรือไม่
+                    || munitions[2].Bounds.IntersectsWith(enemies[i].Bounds)) // ตรวจสอบว่ากระสุนที่ 3 ชนกับศัตรูหรือไม่
+                
+                    {
+                    explosion.controls.play(); // เล่นเสียงระเบิด
+
+                    if (i == boss1Index || i == boss2Index) // ถ้าศัตรูเป็นบอส
+                    {
+                        score += 5; // เพิ่มคะแนน 5 สำหรับบอส
+                    }
+                    else
+                    {
+                        score += 1; // 1 คะแนนสำหรับศัตรูทั่วไป
+                    }
+
+
+                    scorelbl.Text = (score < 10) ? "0" + score.ToString() : score.ToString(); // อัปเดตคะแนนใน label และแสดงตัวเลข 2 หลักเสมอ
+
+
+                    if (score % 10 == 0 && score <= 100) // ตรวจสอบว่าเป็น 10, 20, 30... และไม่เกิน 100
+                    {
+                        // เลือกไอคอนตามคะแนน
+                        Image icon = null;
+                        switch (score)
+                        {
+                            case 10:
+                                icon = Properties.Resources.achievementicon1; // ไอคอนสำหรับ 10 คะแนน
+                                break;
+                            case 20:
+                                icon = Properties.Resources.achievementicon2; // ไอคอนสำหรับ 20 คะแนน
+                                break;
+                            case 30:
+                                icon = Properties.Resources.achievementicon3; // ไอคอนสำหรับ 30 คะแนน
+                                break;
+                            case 40:
+                                icon = Properties.Resources.achievementicon4; // ไอคอนสำหรับ 40 คะแนน
+                                break;
+                            case 50:
+                                icon = Properties.Resources.achievementicon5; // ไอคอนสำหรับ 50 คะแนน
+                                break;
+                            case 60:
+                                icon = Properties.Resources.achievementicon6; // ไอคอนสำหรับ 60 คะแนน
+                                break;
+                            case 70:
+                                icon = Properties.Resources.achievementicon7; // ไอคอนสำหรับ 70 คะแนน
+                                break;
+                            case 80:
+                                icon = Properties.Resources.achievementicon8; // ไอคอนสำหรับ 80 คะแนน
+                                break;
+                            case 90:
+                                icon = Properties.Resources.achievementicon9; // ไอคอนสำหรับ 90 คะแนน
+                                break;
+                            case 100:
+                                icon = Properties.Resources.achievementicon10; // ไอคอนสำหรับ 100 คะแนน
+                                break;
+                        }
+
+                        // แสดง Achievement พร้อมไอคอนที่เลือก
+                        ShowAchievement("Achievement Unlocked!", $"You reached {score} points!", icon);
+                    }
+
+                    if (score % 30 == 0) // ตรวจสอบว่าคะแนนหาร 30 ลงตัว
+                    {
+                        level += 1; // เพิ่มระดับเกม
+                        levellbl.Text = (level < 10) ? "0" + level.ToString() : level.ToString(); // อัปเดตระดับใน label และแสดงตัวเลข 2 หลักเสมอ
+
+                        if (enemiSpeed <= 10 && enemiesMunitionSpeed <= 10 && dificulty >= 0) // ตรวจสอบเงื่อนไขการเพิ่มความเร็วของศัตรู
+                        {
+                            dificulty--; // ลดค่าความยาก
+                            enemiSpeed++; // เพิ่มความเร็วของศัตรู
+                            enemiesMunitionSpeed++; // เพิ่มความเร็วกระสุนของศัตรู
+                        }
+
+                        if (level == 10) // ถ้าระดับถึง 10
+                        {
+                            GameOver("YOU WIN!"); // แสดงข้อความชนะเกม
+                        }
+                    }
+
+                    enemies[i].Location = new Point((i + 1) * 50, -100); // รีเซ็ตตำแหน่งของศัตรูที่ถูกชน
+                }
+
+                if (Player.Bounds.IntersectsWith(enemies[i].Bounds)) // ตรวจสอบว่าผู้เล่นชนกับศัตรูหรือไม่
+                {
+                    explosion.settings.volume = 30; // ตั้งค่าเสียงระเบิดให้ดัง 30%
+                    explosion.controls.play();  // เล่นเสียงระเบิด
+                    Player.Visible = false; // ซ่อนผู้เล่น
+                    GameOver("GAME OVER"); // แสดงข้อความแพ้เกม
+                }
+            }
+        }
+
+
+        private void GameOver(string str)
+        {
+            label.Text = str; // แสดงข้อความที่ระบุในฟังก์ชัน GameOver
+            label.Location = new Point(120, 120); // กำหนดตำแหน่งข้อความในหน้าจอ
+            label.Visible = true; // แสดงข้อความ Game Over
+            ReplayBtn.Visible = true; // แสดงปุ่ม Replay
+            ExitBtn.Visible = true; // แสดงปุ่ม Exit
+
+
+            gameMedia.controls.stop(); // หยุดเพลงหรือเสียงในเกม
+            StopTimers(); // เรียกฟังก์ชัน StopTimers เพื่อหยุดทุกรายการจับเวลา
+        }
+
+
+        //Stop Timers
+        private void StopTimers()
+        {
+            MoveBgTimer.Stop(); // หยุดตัวจับเวลา MoveBgTimer
+            MoveEnemiesTimer.Stop(); // หยุดตัวจับเวลา MoveEnemiesTimer
+            MoveMunitionTimer.Stop();  // หยุดตัวจับเวลา MoveMunitionTimer
+            EnemiesMunitionTimer.Stop(); // หยุดตัวจับเวลา EnemiesMunitionTimer
+        }
+
+
+        //Start Timers
+        private void StartTimers()
+        {
+            MoveBgTimer.Start(); // เริ่มจับเวลา MoveBgTimer
+            MoveEnemiesTimer.Start(); // เริ่มจับเวลา MoveEnemiesTimer
+            MoveMunitionTimer.Start(); // เริ่มจับเวลา MoveMunitionTimer
+            EnemiesMunitionTimer.Start(); // เริ่มจับเวลา EnemiesMunitionTimer
+        }
+
+
+        private void EnemiesMunitionTimer_Tick(object sender, EventArgs e)
+        {
+            for (int i = 0; i < (enemiesMunition.Length - dificulty); i++) // วนลูปเพื่อเช็คการเคลื่อนที่ของกระสุนศัตรู
+            {
+                if (enemiesMunition[i].Top < this.Height) // ถ้ากระสุนยังไม่ตกถึงพื้น
+                {
+                    enemiesMunition[i].Visible = true; // ทำให้กระสุนปรากฏ
+                    enemiesMunition[i].Top += enemiesMunitionSpeed; // เคลื่อนที่กระสุนลงมาด้านล่าง
+
+                    CollisionWithEnemiesMunition(); // เรียกฟังก์ชันตรวจสอบการชนของกระสุนศัตรูกับผู้เล่น
+                }
+                else
+                {
+                    enemiesMunition[i].Visible = false; // ซ่อนกระสุนเมื่อมันหลุดจากหน้าจอ
+                    int x = rnd.Next(0, 10); // สุ่มเลือกศัตรู
+                    enemiesMunition[i].Location = new Point(enemies[x].Location.X + 20, enemies[x].Location.Y + 30); // รีเซ็ตตำแหน่งกระสุนของศัตรู
+                }
+            }
+        }
+
+
+        private void CollisionWithEnemiesMunition()
+        {
+            for (int i = 0; i < enemiesMunition.Length; i++) // วนลูปเพื่อตรวจสอบการชนของกระสุนศัตรูกับผู้เล่
+            {
+                if (enemiesMunition[i].Bounds.IntersectsWith(Player.Bounds)) // ถ้ากระสุนชนกับผู้เล่น
+                {
+                    enemiesMunition[i].Visible = false; // ซ่อนกระสุนที่ชน
+                    explosion.settings.volume = 50; // ตั้งค่าระดับเสียงของเสียงระเบิด
+                    explosion.controls.play(); // เล่นเสียงระเบิด
+                    Player.Visible = false; // ซ่อนผู้เล่น
+                    GameOver("GAME OVER"); // เรียกฟังก์ชัน GameOver เมื่อผู้เล่นถูกกระสุน
+                }
+            }
+        }
+
+
+        private void ExitBtn_Click(object sender, EventArgs e)
+        {
+            Environment.Exit(0); // ออกจากโปรแกรม (ปิดแอปพลิเคชัน)
+        }
+
+        private void ReplayBtn_Click(object sender, EventArgs e)
+        {
+            this.Controls.Clear(); // ลบทุก control ที่อยู่ใน form
+            InitializeComponent(); // เรียกใช้ฟังก์ชัน InitializeComponent เพื่อโหลดคอนโทรลทั้งหมดใหม่
+            Form1_Load(e, e); // เรียกฟังก์ชัน Form1_Load เพื่อรีเซ็ตค่าและเริ่มเกมใหม่
+        }
+
+        private void scorelbl_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        
+    }
+}
+
